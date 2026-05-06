@@ -1,8 +1,8 @@
 # Figurine
 
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/arsham/figurine)](https://pkg.go.dev/github.com/arsham/figurine)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/arsham/figurine/v2)](https://pkg.go.dev/github.com/arsham/figurine/v2)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/arsham/figurine)
-[![Go Report Card](https://goreportcard.com/badge/github.com/arsham/figurine)](https://goreportcard.com/report/github.com/arsham/figurine)
+[![Go Report Card](https://goreportcard.com/badge/github.com/arsham/figurine/v2)](https://goreportcard.com/report/github.com/arsham/figurine/v2)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Print your name in style
@@ -23,7 +23,7 @@ You can download the latest binary from
 source:
 
 ```bash
-go install github.com/arsham/figurine@latest
+go install github.com/arsham/figurine/v2@latest
 ```
 
 ## Usage

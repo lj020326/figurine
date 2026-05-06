@@ -8,13 +8,13 @@ package figurine
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"path"
 
-	"github.com/arsham/rainbow/rainbow"
+	"github.com/arsham/rainbow/v2/rainbow"
 	figure "github.com/common-nighthawk/go-figure"
-	"github.com/pkg/errors"
 )
 
 //go:embed fonts
@@ -25,7 +25,7 @@ var fonts embed.FS
 func Write(out io.Writer, msg, fontName string) error {
 	font, err := fonts.Open(path.Join("fonts/", fontName))
 	if err != nil {
-		return errors.Wrap(err, fontName)
+		return fmt.Errorf("error locating font %s: %w", fontName, err)
 	}
 
 	buf := &bytes.Buffer{}
@@ -33,7 +33,7 @@ func Write(out io.Writer, msg, fontName string) error {
 	figure.Write(buf, myFigure)
 	l := &rainbow.Light{
 		Writer: out,
-		Seed:   rand.Int63n(256),
+		Seed:   rand.Int64N(256),
 	}
 	_, err = io.Copy(l, buf)
 	return err

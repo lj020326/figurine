@@ -7,14 +7,14 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/arsham/figurine/figurine"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/arsham/figurine/v2/figurine"
 )
 
 var (
@@ -48,7 +48,6 @@ func main() {
 }
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
 	cobra.OnInitialize(func() {
 		viper.AutomaticEnv()
 	})
@@ -92,7 +91,7 @@ func decorate(input string) error {
 		input = defaultString
 	}
 	if fontName == "" {
-		index := rand.Intn(len(fontNames))
+		index := rand.IntN(len(fontNames))
 		fontName = fontNames[index]
 	}
 	if visualMode {

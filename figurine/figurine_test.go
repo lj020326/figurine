@@ -9,7 +9,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/arsham/figurine/figurine"
+	"github.com/arsham/figurine/v2/figurine"
 )
 
 func BenchmarkGenerationPart(b *testing.B) {

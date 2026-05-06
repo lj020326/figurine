@@ -29,18 +29,22 @@ unittest: ## Run unit tests in watch mode. You can set: [run, timeout, short, di
 .PHONY: lint
 lint: ## Run linters.
 	go fmt ./...
+	golangci-lint fmt
 	go vet ./...
 	golangci-lint run ./...
 
 .PHONY: dependencies
-dependencies: ## Install dependencies requried for development operations.
+dependencies: ## Install dependencies required for development operations.
 	@go install github.com/cespare/reflex@latest
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@go install github.com/psampaz/go-mod-outdated@latest
 	@go install github.com/jondot/goweight@latest
-	@go get -t -u golang.org/x/tools/cmd/cover
-	@go get -t -u github.com/sonatype-nexus-community/nancy@latest
-	@go get -u ./...
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	@go mod tidy
+
+.PHONY: upgrade
+upgrade: ## Upgrade module dependencies to latest compatible versions.
+	@go get -u -t ./...
 	@go mod tidy
 
 .PHONY: clean
@@ -95,5 +99,5 @@ coverage: ## Show the test coverage on browser.
 .PHONY: audit
 audit: ## Audit the code for updates, vulnerabilities and binary weight.
 	go list -u -m -json all | go-mod-outdated -update -direct
-	go list -json -deps | nancy sleuth
+	govulncheck ./...
 	goweight | head -n 20
