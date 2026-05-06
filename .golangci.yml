@@ -68,8 +68,6 @@ linters:
             - github.com/arsham/figurine/v2
             - github.com/arsham/rainbow/v2
             - github.com/common-nighthawk/go-figure
-            - github.com/spf13/cobra
-            - github.com/spf13/viper
     godot:
       capital: true
     misspell:

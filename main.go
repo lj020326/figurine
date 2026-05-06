@@ -7,86 +7,221 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"math/rand/v2"
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"github.com/arsham/figurine/v2/figurine"
 )
 
+const defaultString = "Arsham"
+
 var (
-	defaultString = "Arsham"
-	fontName      string
-	visualMode    bool
-	list          bool
-	sample        bool
-	version       = "development"
-	currentSha    = "N/A"
+	version    = "development"
+	currentSha = "N/A"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "figurine",
-	Short: "Print any text in style",
-	RunE: func(_ *cobra.Command, args []string) error {
-		if list {
-			listFonts(args)
-			return nil
-		}
-		if len(args) > 0 && args[0] == "version" {
-			fmt.Printf("figurine version %s (%s)\n", version, currentSha)
-			return nil
-		}
-		return decorate(strings.Join(args, " "))
-	},
+type options struct {
+	fontName    string
+	visualMode  bool
+	listFonts   bool
+	showSample  bool
+	showHelp    bool
+	showVersion bool
 }
 
 func main() {
-	cobra.CheckErr(rootCmd.Execute())
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-func init() {
-	cobra.OnInitialize(func() {
-		viper.AutomaticEnv()
-	})
-	rootCmd.Flags().BoolVarP(&visualMode, "visual", "v", false, "Prints the font name.")
-	rootCmd.Flags().StringVarP(&fontName, "font", "f", "", "Choose a font name. Default is a random font.")
-	rootCmd.Flags().BoolVarP(&list, "list", "l", false, "Lists all available fonts.")
-	rootCmd.Flags().BoolVarP(&sample, "sample", "s", false, "Prints a sample with that font.")
+func run(args []string, stdout, stderr io.Writer) int {
+	opts, input, err := parseArgs(args)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "figurine: %v\n\n", err)
+		printUsage(stderr)
+		return 2
+	}
 
-	rootCmd.SetUsageTemplate(`Usage:{{if .Runnable}}
-  {{.UseLine}}{{end}}{{if .HasAvailableSubCommands}}
-  {{.CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+	if opts.showHelp || (!opts.listFonts && firstArg(input, "help")) {
+		printUsage(stdout)
+		return 0
+	}
+	if opts.listFonts {
+		listAvailableFonts(stdout, input, opts.showSample)
+		return 0
+	}
+	if opts.showVersion || firstArg(input, "version") {
+		printVersion(stdout)
+		return 0
+	}
+	if err := decorate(stdout, strings.Join(input, " "), opts.fontName, opts.visualMode); err != nil {
+		_, _ = fmt.Fprintf(stderr, "figurine: %v\n", err)
+		return 1
+	}
+	return 0
+}
 
-Aliases:
-  {{.NameAndAliases}}{{end}}{{if .HasExample}}
+func parseArgs(args []string) (options, []string, error) {
+	var opts options
+	input := make([]string, 0, len(args))
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			input = append(input, args[i+1:]...)
+			return opts, input, nil
+		case strings.HasPrefix(arg, "--") && len(arg) > 2:
+			if err := parseLongFlag(args, &i, &opts); err != nil {
+				return opts, nil, err
+			}
+		case strings.HasPrefix(arg, "-") && arg != "-":
+			if err := parseShortFlags(args, &i, &opts); err != nil {
+				return opts, nil, err
+			}
+		default:
+			input = append(input, arg)
+		}
+	}
+
+	return opts, input, nil
+}
+
+func parseLongFlag(args []string, index *int, opts *options) error {
+	name, value, hasValue := strings.Cut(args[*index][2:], "=")
+	switch name {
+	case "help":
+		if hasValue {
+			return fmt.Errorf("flag --help does not take a value")
+		}
+		opts.showHelp = true
+	case "version":
+		if hasValue {
+			return fmt.Errorf("flag --version does not take a value")
+		}
+		opts.showVersion = true
+	case "visual":
+		if hasValue {
+			return fmt.Errorf("flag --visual does not take a value")
+		}
+		opts.visualMode = true
+	case "list":
+		if hasValue {
+			return fmt.Errorf("flag --list does not take a value")
+		}
+		opts.listFonts = true
+	case "sample":
+		if hasValue {
+			return fmt.Errorf("flag --sample does not take a value")
+		}
+		opts.showSample = true
+	case "font":
+		fontName, err := flagValue(args, index, value, hasValue)
+		if err != nil {
+			return err
+		}
+		opts.fontName = fontName
+	default:
+		return fmt.Errorf("unknown flag --%s", name)
+	}
+	return nil
+}
+
+func parseShortFlags(args []string, index *int, opts *options) error {
+	flags := args[*index][1:]
+	for pos := 0; pos < len(flags); pos++ {
+		switch flags[pos] {
+		case 'h':
+			opts.showHelp = true
+		case 'v':
+			opts.visualMode = true
+		case 'l':
+			opts.listFonts = true
+		case 's':
+			opts.showSample = true
+		case 'f':
+			fontName, err := shortFlagValue(args, index, flags, pos)
+			if err != nil {
+				return err
+			}
+			opts.fontName = fontName
+			return nil
+		default:
+			return fmt.Errorf("unknown flag -%c", flags[pos])
+		}
+	}
+	return nil
+}
+
+func shortFlagValue(args []string, index *int, flags string, pos int) (string, error) {
+	if pos+1 < len(flags) {
+		return validateFontName(flags[pos+1:])
+	}
+	next := *index + 1
+	if next >= len(args) {
+		return "", fmt.Errorf("missing value for -f")
+	}
+	*index = next
+	return validateFontName(args[next])
+}
+
+func flagValue(args []string, index *int, value string, hasValue bool) (string, error) {
+	if hasValue {
+		return validateFontName(value)
+	}
+	next := *index + 1
+	if next >= len(args) {
+		return "", fmt.Errorf("missing value for --font")
+	}
+	*index = next
+	return validateFontName(args[next])
+}
+
+func validateFontName(fontName string) (string, error) {
+	if fontName == "" {
+		return "", fmt.Errorf("font name cannot be empty")
+	}
+	return fontName, nil
+}
+
+func firstArg(args []string, value string) bool {
+	return len(args) > 0 && args[0] == value
+}
+
+func printUsage(w io.Writer) {
+	_, _ = fmt.Fprint(w, `Figurine prints text in a random FIGlet font with rainbow colours.
+
+Usage:
+  figurine [flags] [text...]
+  figurine help
+  figurine version
 
 Examples:
-{{.Example}}{{end}}{{if .HasAvailableSubCommands}}
-
-Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
-
-Available Commands:
-  help        Help about any command
-  version     Print binary version information
+  figurine Some Text
+  figurine -f "Poison.flf" Some Text
+  figurine -l
+  figurine -ls Sample Text
+  figurine -- --text starting with a dash
 
 Flags:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+  -f, --font name   Use a specific font (default: random)
+  -l, --list        List available fonts
+  -s, --sample      With --list, print a sample for each font
+  -v, --visual      Print the selected font name before output
+      --version     Print binary version information
+  -h, --help        Show this help
 
-Global Flags:
-{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasHelpSubCommands}}
-
-Additional help topics:{{range .Commands}}{{if .IsAdditionalHelpTopicCommand}}
-  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
-
-Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
+When text is omitted, figurine prints "Arsham".
+Short boolean flags can be combined, such as -ls.
 `)
 }
 
-func decorate(input string) error {
+func printVersion(w io.Writer) {
+	_, _ = fmt.Fprintf(w, "figurine version %s (%s)\n", version, currentSha)
+}
+
+func decorate(out io.Writer, input, fontName string, visualMode bool) error {
 	if input == "" {
 		input = defaultString
 	}
@@ -95,24 +230,24 @@ func decorate(input string) error {
 		fontName = fontNames[index]
 	}
 	if visualMode {
-		fmt.Printf("Font: %s\n", fontName)
+		_, _ = fmt.Fprintf(out, "Font: %s\n", fontName)
 	}
-	return figurine.Write(os.Stdout, input, fontName)
+	return figurine.Write(out, input, fontName)
 }
 
-func listFonts(args []string) {
+func listAvailableFonts(out io.Writer, args []string, sample bool) {
 	if len(args) == 0 {
 		args = []string{"Golang"}
 	}
 	input := strings.Join(args, " ")
 	for _, f := range fontNames {
-		fmt.Println(f)
+		_, _ = fmt.Fprintln(out, f)
 		if sample {
-			err := figurine.Write(os.Stdout, input, f)
+			err := figurine.Write(out, input, f)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "printing to the output: %v", err)
+				_, _ = fmt.Fprintf(os.Stderr, "printing to the output: %v", err)
 			}
-			fmt.Println()
+			_, _ = fmt.Fprintln(out)
 		}
 	}
 }
