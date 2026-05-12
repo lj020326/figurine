@@ -59,6 +59,32 @@ This application is very light weight, so feel free to add it to your
 .zshrc/.bashrc file, so each time you open a new shell it shows you a nice
 message.
 
+## Github release workflow
+
+How to use it
+
+1. Commit and push the workflow file.
+2. reate and push a tag:
+
+```bash
+git tag v2.1.0
+git push origin v2.1.0
+```
+
+The workflow will automatically:
+
+* Build for Linux (amd64, arm, arm64)
+* Build for macOS (amd64)
+* Build for Windows (amd64)
+* Create .tar.gz / .zip archives
+* Generate CHECKSUM file with SHA256 hashes
+* Create a GitHub Release with all assets
+
+### Optional improvements
+
+Using Goreleaser (more powerful, recommended for Go projects):
+If a more feature-rich solution is preferred, you can replace the Makefile build step with Goreleaser.
+
 ## See Also
 
 See also [Rainbow][rainbow], which is the library that colours the output.
