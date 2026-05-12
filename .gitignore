@@ -35,3 +35,7 @@ go.work
 vendor/
 deploy/
 tmp/
+
+.idea/
+save/
+archive/
